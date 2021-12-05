@@ -164,7 +164,14 @@ func main() {
 			log.Fatal(err)
 		}
 
-		f, err := os.OpenFile(config.TemplateOutput, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0640)
+		flags := os.O_WRONLY | os.O_CREATE
+		if config.Force {
+			flags |= os.O_TRUNC
+		} else {
+			flags |= os.O_EXCL
+		}
+
+		f, err := os.OpenFile(config.TemplateOutput, flags, 0640)
 		if err != nil {
 			log.Fatal(err)
 		}

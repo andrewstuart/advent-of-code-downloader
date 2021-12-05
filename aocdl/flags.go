@@ -28,6 +28,8 @@ func addFlags(config *configuration) {
 	flags.StringVar(&flagCfg.TestOutput, "test-output", "", "")
 	flags.StringVar(&flagCfg.TestTemplate, "test-template", "", "")
 	flags.StringVar(&flagCfg.TestTemplateOutput, "test-template-output", "", "")
+	flags.StringVar(&flagCfg.Template, "template", "", "")
+	flags.StringVar(&flagCfg.TemplateOutput, "template-output", "", "")
 
 	flagErr := flags.Parse(os.Args[1:])
 

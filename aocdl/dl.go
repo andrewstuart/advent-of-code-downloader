@@ -43,13 +43,10 @@ func getStory(ctx context.Context, config *configuration) error {
 		flags |= os.O_EXCL
 	}
 
-	file, err := os.OpenFile("a.html", flags, 0660)
-	if os.IsExist(err) {
-		file, err = os.OpenFile("b.html", flags, 0660)
-	}
+	file, err := os.OpenFile(config.StoryOut, flags, 0660)
 	if err != nil {
 		if os.IsExist(err) {
-			return fmt.Errorf("file '%s' already exists; use '-force' to overwrite", config.Output)
+			return fmt.Errorf("file '%s' already exists; use '-force' to overwrite", config.StoryOut)
 		}
 		return err
 	}

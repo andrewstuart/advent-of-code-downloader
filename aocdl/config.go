@@ -85,6 +85,9 @@ func (config *configuration) mergeWithFileIfExists(filename string) error {
 }
 
 func (config *configuration) merge(other *configuration) {
+	if other.Force {
+		config.Force = true
+	}
 	if other.SessionCookie != "" {
 		config.SessionCookie = other.SessionCookie
 	}
@@ -115,7 +118,7 @@ func (config *configuration) merge(other *configuration) {
 	if other.TemplateOutput != "" {
 		config.TemplateOutput = other.TemplateOutput
 	}
-	if other.TemplateOutput != "" {
-		config.TemplateOutput = other.TemplateOutput
+	if other.Template != "" {
+		config.Template = other.Template
 	}
 }
