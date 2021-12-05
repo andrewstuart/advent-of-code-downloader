@@ -9,12 +9,18 @@ import (
 )
 
 type configuration struct {
-	SessionCookie string `json:"session-cookie"`
-	Output        string `json:"output"`
-	Year          int    `json:"year"`
-	Day           int    `json:"day"`
-	Force         bool   `json:"-"`
-	Wait          bool   `json:"-"`
+	SessionCookie      string `json:"session-cookie"`
+	Output             string `json:"output"`
+	Year               int    `json:"year"`
+	Day                int    `json:"day"`
+	Force              bool   `json:"-"`
+	Wait               bool   `json:"-"`
+	StoryOut           string `json:"-"`
+	Template           string `json:"template"`
+	TemplateOutput     string `json:"template-output"`
+	TestOutput         string `json:"test-output"`
+	TestTemplate       string `json:"test-template"`
+	TestTemplateOutput string `json:"test-template-output"`
 }
 
 func loadConfigs() (*configuration, error) {
@@ -90,5 +96,26 @@ func (config *configuration) merge(other *configuration) {
 	}
 	if other.Day != 0 {
 		config.Day = other.Day
+	}
+	if other.StoryOut != "" {
+		config.StoryOut = other.StoryOut
+	}
+	if other.TestOutput != "" {
+		config.TestOutput = other.TestOutput
+	}
+	if other.TestTemplate != "" {
+		config.TestTemplate = other.TestTemplate
+	}
+	if other.TestTemplateOutput != "" {
+		config.TestTemplateOutput = other.TestTemplateOutput
+	}
+	if other.TestTemplateOutput != "" {
+		config.TestTemplateOutput = other.TestTemplateOutput
+	}
+	if other.TemplateOutput != "" {
+		config.TemplateOutput = other.TemplateOutput
+	}
+	if other.TemplateOutput != "" {
+		config.TemplateOutput = other.TemplateOutput
 	}
 }

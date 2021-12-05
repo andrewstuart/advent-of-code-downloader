@@ -1,17 +1,17 @@
 package main
 
 import (
-	"bytes"
-	"errors"
-	"flag"
+	"context"
 	"fmt"
-	"io"
+	"log"
 	"math/rand"
-	"net/http"
 	"os"
-	"strconv"
+	"os/signal"
+	"syscall"
 	"text/template"
 	"time"
+
+	"github.com/skratchdot/open-golang/open"
 )
 
 const titleAboutMessage = `Advent of Code Downloader
@@ -48,6 +48,18 @@ Options:
 		the input of the new day. While waiting a countdown is displayed. To
 		reduce load on the Advent of Code servers, the download is started after
 		a random delay between 2 and 30 seconds after midnight.
+
+	-story-output a.html
+		Get the original story page and open it in the browser locally when downloaded.
+
+	-test-output test.txt
+		Save the pre>code block in the input page as an output file for testing
+
+	-test-template f.tpl
+		A go template to execute against the template test, the story, the config struct
+
+	-test-template-output test.go
+		A file to write using the test-template output. Requires test-template to be specified.
 `
 
 const repositoryMessage = `Repository:
@@ -72,6 +84,21 @@ the current directory and add the 'session-cookie' key:
 `
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		ch := make(chan os.Signal, 2)
+		signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
+		i := 0
+		for range ch {
+			i++
+			if i > 1 {
+				os.Exit(1)
+			}
+			cancel()
+		}
+	}()
+
 	rand.Seed(time.Now().Unix())
 
 	config, err := loadConfigs()
@@ -121,8 +148,35 @@ func main() {
 		wait(next)
 	}
 
-	err = download(config)
+	err = download(ctx, config)
 	checkError(err)
+
+	if config.StoryOut != "" {
+		err = getStory(ctx, config)
+		checkError(err)
+
+		defer open.Start(config.StoryOut)
+	}
+
+	if config.Template != "" {
+		tpl, err := template.ParseFiles(config.Template)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		f, err := os.OpenFile(config.TemplateOutput, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0640)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+
+		err = tpl.Execute(f, map[string]interface{}{
+			"Config": config,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func checkError(err error) {
@@ -130,93 +184,6 @@ func checkError(err error) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-}
-
-func addFlags(config *configuration) {
-	flags := flag.NewFlagSet("", flag.ContinueOnError)
-
-	ignored := new(bytes.Buffer)
-	flags.SetOutput(ignored)
-
-	sessionCookieFlag := flags.String("session-cookie", "", "")
-	outputFlag := flags.String("output", "", "")
-	yearFlag := flags.String("year", "", "")
-	dayFlag := flags.String("day", "", "")
-
-	forceFlag := flags.Bool("force", false, "")
-	waitFlag := flags.Bool("wait", false, "")
-
-	var year, day int
-
-	flagErr := flags.Parse(os.Args[1:])
-
-	if flagErr == nil {
-		year, flagErr = parseIntFlag(*yearFlag)
-	}
-
-	if flagErr == nil {
-		day, flagErr = parseIntFlag(*dayFlag)
-	}
-
-	if flagErr == flag.ErrHelp {
-		fmt.Println(titleAboutMessage)
-		fmt.Println(usageMessage)
-		fmt.Println(repositoryMessage)
-		os.Exit(0)
-	}
-
-	if flagErr != nil {
-		fmt.Fprintln(os.Stderr, flagErr)
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, usageMessage)
-		os.Exit(1)
-	}
-
-	flagConfig := new(configuration)
-	flagConfig.SessionCookie = *sessionCookieFlag
-	flagConfig.Output = *outputFlag
-	flagConfig.Year = year
-	flagConfig.Day = day
-
-	config.merge(flagConfig)
-
-	if *forceFlag {
-		config.Force = true
-	}
-	if *waitFlag {
-		config.Wait = true
-	}
-}
-
-func parseIntFlag(text string) (int, error) {
-	if text == "" {
-		return 0, nil
-	}
-	// Parse in base 10.
-	value, err := strconv.ParseInt(text, 10, 0)
-	return int(value), err
-}
-
-func renderOutput(config *configuration) error {
-	tmpl, err := template.New("output").Parse(config.Output)
-	if err != nil {
-		return err
-	}
-
-	buf := new(bytes.Buffer)
-
-	data := make(map[string]int)
-	data["Year"] = config.Year
-	data["Day"] = config.Day
-
-	err = tmpl.Execute(buf, data)
-	if err != nil {
-		return err
-	}
-
-	config.Output = buf.String()
-
-	return nil
 }
 
 func wait(next time.Time) {
@@ -249,51 +216,4 @@ func wait(next time.Time) {
 	}
 
 	fmt.Printf("\r                \r")
-}
-
-func download(config *configuration) error {
-	client := new(http.Client)
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("https://adventofcode.com/%d/day/%d/input", config.Year, config.Day), nil)
-	if err != nil {
-		return err
-	}
-
-	cookie := new(http.Cookie)
-	cookie.Name, cookie.Value = "session", config.SessionCookie
-	req.AddCookie(cookie)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return errors.New(resp.Status)
-	}
-
-	flags := os.O_WRONLY | os.O_CREATE
-	if config.Force {
-		flags |= os.O_TRUNC
-	} else {
-		flags |= os.O_EXCL
-	}
-
-	file, err := os.OpenFile(config.Output, flags, 0666)
-	if os.IsExist(err) {
-		return fmt.Errorf("file '%s' already exists; use '-force' to overwrite", config.Output)
-	} else if err != nil {
-		return err
-	}
-
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
