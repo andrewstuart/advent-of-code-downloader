@@ -17,8 +17,7 @@ import (
 const titleAboutMessage = `Advent of Code Downloader
 
 aocdl is a command line utility that automatically downloads your Advent of Code
-puzzle inputs.
-`
+puzzle inputs.`
 
 const usageMessage = `Usage:
 
@@ -59,13 +58,11 @@ Options:
 		A go template to execute against the template test, the story, the config struct
 
 	-test-template-output test.go
-		A file to write using the test-template output. Requires test-template to be specified.
-`
+		A file to write using the test-template output. Requires test-template to be specified.`
 
 const repositoryMessage = `Repository:
 
-	https://github.com/GreenLightning/advent-of-code-downloader
-`
+	https://github.com/GreenLightning/advent-of-code-downloader`
 
 const missingSessionCookieMessage = `No Session Cookie
 
@@ -80,8 +77,7 @@ the current directory and add the 'session-cookie' key:
 
 {
 	"session-cookie": "0123456789...abcdef"
-}
-`
+}`
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -155,7 +151,7 @@ func main() {
 		err = getStory(ctx, config)
 		checkError(err)
 
-		defer open.Start(config.StoryOut)
+		defer open.Start(fmt.Sprintf("https://adventofcode.com/%d/day/%d", config.Year, config.Day))
 	}
 
 	if config.Template != "" {
