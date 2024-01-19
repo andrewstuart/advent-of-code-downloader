@@ -1,16 +1,16 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"os/signal"
-	"syscall"
 	"text/template"
 	"time"
 
+	_ "time/tzdata"
+
+	"github.com/gopuff/morecontext"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -80,22 +80,7 @@ the current directory and add the 'session-cookie' key:
 }`
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		ch := make(chan os.Signal, 2)
-		signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
-		i := 0
-		for range ch {
-			i++
-			if i > 1 {
-				os.Exit(1)
-			}
-			cancel()
-		}
-	}()
-
-	rand.Seed(time.Now().Unix())
+	ctx := morecontext.ForSignals()
 
 	config, err := loadConfigs()
 	checkError(err)
@@ -108,7 +93,10 @@ func main() {
 	}
 
 	est, err := time.LoadLocation("EST")
-	checkError(err)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "failed to load time zone information:", err)
+		os.Exit(1)
+	}
 
 	now := time.Now().In(est)
 	next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, est)
@@ -132,12 +120,20 @@ func main() {
 	err = renderOutput(config)
 	checkError(err)
 
-	if !config.Force {
-		// Check if output file exists before waiting and before downloading.
-		if _, err := os.Stat(config.Output); !os.IsNotExist(err) {
+	// Check if output file exists before waiting and before downloading.
+	info, err := os.Stat(config.Output)
+	if err == nil {
+		if info.IsDir() {
+			fmt.Fprintf(os.Stderr, "cannot write to '%s' because it is a directory\n", config.Output)
+			os.Exit(1)
+		}
+		if !config.Force {
 			fmt.Fprintf(os.Stderr, "file '%s' already exists; use '-force' to overwrite\n", config.Output)
 			os.Exit(1)
 		}
+	} else if !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "failed to check output file '%s': %v\n", config.Output, err)
+		os.Exit(1)
 	}
 
 	if config.Wait {

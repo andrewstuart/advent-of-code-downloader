@@ -15,7 +15,7 @@ type configuration struct {
 	Day                int    `json:"day"`
 	Force              bool   `json:"-"`
 	Wait               bool   `json:"-"`
-	StoryOut           string `json:"-"`
+	StoryOut           string `json:"story-out"`
 	Template           string `json:"template"`
 	TemplateOutput     string `json:"template-output"`
 	TestOutput         string `json:"test-output"`
