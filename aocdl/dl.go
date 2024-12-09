@@ -71,9 +71,8 @@ func getStory(ctx context.Context, config *configuration) error {
 		return fmt.Errorf("error parsing story with goquery: %w", err)
 	}
 
-	preCode := doc.Find("pre code")
-	test := preCode.First().Text()
-	expected := preCode.Last().Text()
+	test := doc.Find("pre code").First().Text()
+	expected := doc.Find("code em").Last().Text()
 
 	// Write the test output to a file
 	if config.TestOutput != "" {
@@ -95,7 +94,7 @@ func getStory(ctx context.Context, config *configuration) error {
 		err = tpl.Execute(f, map[string]interface{}{
 			"Config": config,
 			"Test":   test,
-			"Expect": expected,
+			"Expected": expected,
 		})
 		if err != nil {
 			return fmt.Errorf("error templating test output: %w", err)
